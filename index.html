@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iFood Experience — Quiz de Talentos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1C1C1E; --red: #EA1D2C; --white: #FFFFFF;
+      --card: #2C2C2E; --gray: #8E8E93;
+      --grad: linear-gradient(135deg, #EA1D2C, #FF6B35);
+      --radius: 16px; --trans: 0.25s ease;
+    }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--white); min-height: 100vh;
+    }
+    .screen { display: none; min-height: 100vh; padding: 24px 16px 48px; flex-direction: column; align-items: center; animation: fadeIn 0.4s ease; }
+    .screen.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .container { width: 100%; max-width: 640px; }
+    .badge { display: inline-block; background: var(--grad); color: var(--white); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 12px; border-radius: 20px; margin-bottom: 20px; }
+    .quiz-title { font-size: clamp(28px, 6vw, 42px); font-weight: 800; line-height: 1.15; margin-bottom: 10px; }
+    .quiz-sub { font-size: 15px; color: var(--gray); margin-bottom: 32px; line-height: 1.5; }
+    .field-group { margin-bottom: 20px; }
+    .field-label { display: block; font-size: 14px; font-weight: 600; color: var(--gray); margin-bottom: 8px; letter-spacing: 0.03em; }
+    .field-input { width: 100%; background: var(--card); border: 1.5px solid #3A3A3C; border-radius: 12px; padding: 14px 16px; color: var(--white); font-family: inherit; font-size: 16px; outline: none; transition: border-color var(--trans); }
+    .field-input::placeholder { color: #5A5A5E; }
+    .field-input:focus { border-color: var(--red); }
+    .field-input:invalid:not(:placeholder-shown) { border-color: #ff6b35; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 28px; border-radius: 100px; font-family: inherit; font-size: 16px; font-weight: 700; border: none; cursor: pointer; transition: opacity var(--trans), transform var(--trans); text-decoration: none; }
+    .btn-primary { background: var(--grad); color: var(--white); width: 100%; }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary:not(:disabled):hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary { background: var(--card); color: var(--white); border: 1.5px solid #3A3A3C; width: 100%; margin-top: 12px; }
+    .btn-secondary:hover { border-color: var(--gray); }
+    .progress-wrap { width: 100%; background: #3A3A3C; border-radius: 4px; height: 5px; margin-bottom: 28px; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--grad); border-radius: 4px; transition: width 0.4s ease; }
+    .progress-label { font-size: 13px; color: var(--gray); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .question-text { font-size: clamp(18px, 4vw, 22px); font-weight: 700; line-height: 1.4; margin-bottom: 24px; }
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option-card { background: var(--card); border: 1.5px solid #3A3A3C; border-radius: var(--radius); padding: 16px 18px; cursor: pointer; font-size: 15px; font-weight: 500; line-height: 1.45; color: var(--white); transition: border-color var(--trans), background var(--trans), transform var(--trans); position: relative; text-align: left; width: 100%; font-family: inherit; }
+    .option-card:hover { border-color: var(--red); transform: translateX(3px); }
+    .option-card.selected { border-color: var(--red); background: rgba(234,29,44,0.12); }
+    .option-card.selected::before { content: ''; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: var(--red); border-radius: 50%; }
+    .next-wrap { margin-top: 24px; }
+    .spinner { width: 52px; height: 52px; border: 4px solid #3A3A3C; border-top-color: var(--red); border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 24px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 18px; font-weight: 600; color: var(--gray); text-align: center; }
+    .check-circle { width: 72px; height: 72px; margin: 0 auto 28px; animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .ty-title { font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 14px; }
+    .ty-body { font-size: 16px; color: var(--gray); text-align: center; line-height: 1.65; margin-bottom: 36px; }
+    #screen-loading { justify-content: center; }
+    .center-content { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .divider { border: none; border-top: 1px solid #3A3A3C; margin: 28px 0; }
+    @media (max-width: 400px) { .option-card { padding: 14px 14px; font-size: 14px; } }
+  </style>
+</head>
+<body>
+
+<!-- ═══ TELA 1 — IDENTIFICAÇÃO ═══ -->
+<section id="screen-id" class="screen active">
+  <div class="container">
+    <div class="badge">iFood Experience</div>
+    <h1 class="quiz-title">Vamos conhecer o seu perfil</h1>
+    <p class="quiz-sub">Responda 20 situações práticas e descubra como você se conecta com o universo iFood.</p>
+
+    <div class="field-group">
+      <label class="field-label" for="field-nome">Nome completo</label>
+      <input id="field-nome" class="field-input" type="text" placeholder="Seu nome completo" autocomplete="name" />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="field-email">E-mail</label>
+      <input id="field-email" class="field-input" type="email" placeholder="seu@email.com" autocomplete="email" required />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="field-escola">Escola / Instituto</label>
+      <input id="field-escola" class="field-input" type="text" placeholder="Nome da sua instituição" autocomplete="organization" />
+    </div>
+
+    <button id="btn-start" class="btn btn-primary" disabled>Começar →</button>
+  </div>
+</section>
+
+<!-- ═══ TELA 2 — QUIZ ═══ -->
+<section id="screen-quiz" class="screen">
+  <div class="container">
+    <div class="progress-label">
+      <span id="prog-text">Pergunta 1 de 20</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+    </div>
+    <p id="question-text" class="question-text"></p>
+    <div id="options-list" class="options"></div>
+    <div class="next-wrap">
+      <button id="btn-next" class="btn btn-primary" disabled>Próxima →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TELA 3 — LOADING ═══ -->
+<section id="screen-loading" class="screen">
+  <div class="center-content">
+    <div class="spinner"></div>
+    <p class="loading-text">Registrando suas respostas...</p>
+  </div>
+</section>
+
+<!-- ═══ TELA 4 — AGRADECIMENTO ═══ -->
+<section id="screen-thanks" class="screen">
+  <div class="container" style="text-align:center">
+    <div class="badge">iFood Experience</div>
+    <svg class="check-circle" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="36" cy="36" r="36" fill="url(#grad-check)"/>
+      <path d="M22 36.5L31 46L50 27" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <animate attributeName="stroke-dasharray" from="0 60" to="60 0" dur="0.5s" begin="0.2s" fill="freeze"/>
+      </path>
+      <defs>
+        <linearGradient id="grad-check" x1="0" y1="0" x2="72" y2="72" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#EA1D2C"/>
+          <stop offset="100%" stop-color="#FF6B35"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <h2 class="ty-title">Respostas registradas!</h2>
+    <p class="ty-body">
+      Suas respostas foram salvas com sucesso.<br/>
+      O resultado é confidencial e será tratado com cuidado.
+    </p>
+    <a href="https://www.ifood.com.br" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none">
+      Conhecer o iFood ↗
+    </a>
+  </div>
+</section>
+
+<script>
+'use strict';
+
+// ── CONFIG ──────────────────────────────────────────────────────
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVLta7t4Xs37YSdWSvZ_m6ZsFJ0rChf10gsAZGO1B21G_p5ruL3fNfCUq1LdWtMAmPFg/exec';
+
+// ── QUESTIONS — 20 situações práticas, 4 alternativas cada ────
+// O cliente transmite somente o índice da alternativa escolhida.
+const QUESTIONS = [
+  {
+    text: "Você recebe uma tarefa nova, sem manual nem exemplo. O que faz?",
+    options: [
+      "Junto o maior número de pessoas interessadas e montamos uma solução juntos",
+      "Fico animado: finalmente um desafio de verdade que vai me fazer crescer",
+      "Mergulho na documentação e na lógica por trás do problema antes de agir",
+      "Vou direto na prática — monto algo funcional e mostro como funciona"
+    ]
+  },
+  {
+    text: "Um projeto que você liderou não atingiu o resultado esperado. Qual é sua reação?",
+    options: [
+      "Reúno o time, explico o que aconteceu e construímos um plano novo juntos",
+      "Analiso cada etapa técnica com cuidado para entender exatamente onde falhou",
+      "Processo a frustração rápido e uso como combustível para voltar com tudo",
+      "Refaço do zero, mostrando na prática como deveria ter sido feito"
+    ]
+  },
+  {
+    text: "Qual dessas conquistas te orgulha mais?",
+    options: [
+      "Ver pessoas que eu ajudei a desenvolverem habilidades que não tinham antes",
+      "Chegar no topo de um ranking ou comparação que parecia impossível",
+      "Descobrir algo técnico que ninguém ao redor tinha conseguido entender",
+      "Criar algo do zero que funciona e que as pessoas realmente usam"
+    ]
+  },
+  {
+    text: "Você está em um ambiente novo com pessoas que não conhece. Como se posiciona?",
+    options: [
+      "Começo a conversar com todo mundo e identifico quem pode somar com quem",
+      "Fico quieto observando até entender as regras e quem manda",
+      "Procuro a pessoa mais técnica da sala e troco ideia sobre o assunto",
+      "Já proponho uma ideia na mesa para mostrar que estou presente"
+    ]
+  },
+  {
+    text: "O que te motiva de verdade em um dia de trabalho?",
+    options: [
+      "Saber que o que faço conecta pessoas e resolve problemas reais de comunidade",
+      "Uma meta clara, um indicador para bater e a sensação de que vou superar",
+      "Entender algo que antes era obscuro e conseguir explicar para os outros",
+      "Ver uma ideia virar produto na prática e funcionar de verdade"
+    ]
+  },
+  {
+    text: "Se você pudesse escolher como passar um fim de semana ideal, o que faria?",
+    options: [
+      "Um evento, encontro ou atividade coletiva com gente interessante",
+      "Uma competição, desafio ou projeto com prazo curto e resultado claro",
+      "Estudar ou aprender algo novo em profundidade, sem pressa",
+      "Construir algo com as mãos — um projeto, protótipo ou solução concreta"
+    ]
+  },
+  {
+    text: "Quando alguém do seu time apresenta uma ideia muito diferente da sua, você...",
+    options: [
+      "Encaixo a ideia no contexto maior e ajudo a articular o porquê faz sentido",
+      "Vejo como um benchmark: será que isso me faz alcançar um nível acima?",
+      "Analiso os prós e contras técnicos com cuidado antes de formar opinião",
+      "Tento na prática rápido — se funcionar, ótimo; se não, aprendemos"
+    ]
+  },
+  {
+    text: "O que as pessoas mais pedem para você fazer?",
+    options: [
+      "Facilitar uma conversa difícil ou mediar um conflito entre pessoas",
+      "Liderar uma missão ambiciosa e puxar o time para resultados",
+      "Explicar algo complexo de forma clara ou resolver um problema técnico",
+      "Transformar uma ideia abstrata em algo concreto que funcione"
+    ]
+  },
+  {
+    text: "Você descobre que uma tarefa que fez foi copiada e apresentada por outra pessoa. O que faz?",
+    options: [
+      "Converso com a pessoa diretamente, sem expor publicamente, e busco resolver",
+      "Não perco tempo: o importante é que o resultado foi bom, não quem fez",
+      "Fico irritado, mas analiso com calma se há algo que eu deveria ter feito diferente",
+      "Melhoro o que fiz e já entrego a próxima versão ainda melhor e mais rápido"
+    ]
+  },
+  {
+    text: "Como você preferiria celebrar uma conquista profissional?",
+    options: [
+      "Juntando o time num momento descontraído e genuíno de conexão",
+      "Com um reconhecimento público, ranking ou menção que valida o esforço",
+      "Com acesso a um conteúdo, workshop ou recurso que me deixe melhor no que faço",
+      "Com tempo livre para dedicar ao próximo projeto que estou criando"
+    ]
+  },
+  {
+    text: "Você entra em um projeto já em andamento e percebe que ninguém te deu contexto. O que faz?",
+    options: [
+      "Pego o menor número de pessoas-chave e faço uma reunião rápida de alinhamento",
+      "Pergunto onde o projeto está no ranking e o que preciso fazer para melhorar o resultado",
+      "Peço acesso a tudo — documentação, código, dados — e estudo antes de falar qualquer coisa",
+      "Já começo a fazer algo concreto para entender na prática como funciona"
+    ]
+  },
+  {
+    text: "O que faz você confiar em uma pessoa nova?",
+    options: [
+      "Ela escuta de verdade e faz questão de entender meu contexto antes de agir",
+      "Ela entrega resultados claros e se supera quando precisa sem reclamar",
+      "Ela demonstra conhecimento profundo e não tem medo de admitir o que não sabe",
+      "Ela cumpre o que promete e transforma ideias em ações concretas"
+    ]
+  },
+  {
+    text: "Se alguém te oferecesse uma oportunidade imperdível, o que ela teria?",
+    options: [
+      "Impacto real em pessoas e comunidades que eu consigo enxergar na prática",
+      "Uma competição ou desafio que me tire da zona de conforto e me faça evoluir",
+      "Acesso a conhecimento técnico de ponta e mentores excepcionais",
+      "Liberdade para construir algo do zero com total autonomia de decisão"
+    ]
+  },
+  {
+    text: "Como você reage quando alguém do time está desmotivado?",
+    options: [
+      "Converso individualmente para entender o que está acontecendo e como posso ajudar",
+      "Proponho um desafio ou meta nova para reacender a energia do grupo",
+      "Ofereço ajuda técnica e tento remover o obstáculo que está travando a pessoa",
+      "Dou o exemplo fazendo a tarefa junto, mostrando que é possível avançar"
+    ]
+  },
+  {
+    text: "O que te faria desistir de um projeto que você ama?",
+    options: [
+      "Se eu percebesse que ele não gera valor real para as pessoas que deveria servir",
+      "Se ele deixasse de ser desafiador e virasse uma rotina previsível",
+      "Se eu percebesse que não estou evoluindo tecnicamente ou aprendendo nada novo",
+      "Se ele consumisse todo o meu tempo sem espaço para criar nada de novo"
+    ]
+  },
+  {
+    text: "Como você mantém o ritmo quando está fazendo algo que domina bem?",
+    options: [
+      "Procuro novas formas de engajar o time e incluir pessoas que ainda não participam",
+      "Defino um novo objetivo ainda mais alto e busco superar meu próprio resultado",
+      "Aprofundo o conhecimento nos detalhes para não ficar apenas na superfície",
+      "Já estou criando a próxima versão melhorada na minha cabeça"
+    ]
+  },
+  {
+    text: "Num dia típico de trabalho, em qual dessas tarefas você mais investe seu tempo?",
+    options: [
+      "Conversar, alinhar expectativas e garantir que todos estejam na mesma página",
+      "Lutar por metas, acompanhar indicadores e buscarsuperar resultados",
+      "Estudar, pesquisar e entender como resolver problemas técnicos específicos",
+      "Construir, programar, montar e colocar a mão na massa"
+    ]
+  },
+  {
+    text: "Quando você precisa explicar algo difícil para alguém, como faz?",
+    options: [
+      "Uso histórias,analogias e conecto com a realidade da outra pessoa",
+      "Mostro dados, benchmarks e comparações concretas para convencer pela lógica",
+      "Vou do conceito ao detalhe técnico, estruturando o raciocínio passo a passo",
+      "Faço na frente da pessoa: é mais rápido do que explicar por palavras"
+    ]
+  },
+  {
+    text: "O que te mantém consistente ao longo do tempo em um projeto longo?",
+    options: [
+      "A rede de pessoas que se formou ao redor do projeto e a missão de impacto",
+      "Os marcos intermediários e a possibilidade de comparar resultados com outros",
+      "A oportunidade contínua de aprender algo novo e aprofundar o conhecimento",
+      "A perspectiva de ver o produto finalizado e funcionando como você imaginou"
+    ]
+  },
+  {
+    text: "Como você prioriza quando tem muitas coisas para fazer ao mesmo tempo?",
+    options: [
+      "Começo pelo que mais impacta as pessoas ao meu redor e que depende de mim",
+      "Faço primeiro o que tem prazo mais curto e o maior peso no resultado final",
+      "Aguardo o que exige mais análise técnica e deixo o resto por conta da intuição",
+      "Vou montando o que consigo finalizar rápido para já ter coisa pronta"
+    ]
+  }
+];
+
+// ── STATE ──────────────────────────────────────────────────────
+var state = {
+  nome: '',
+  email: '',
+  currentQ: 0,
+  selectedIdx: null,
+  answers: []
+};
+
+// ── HELPERS ─────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+function updateProgress() {
+  var total = QUESTIONS.length;
+  var done = state.currentQ;
+  var pct = Math.round((done / total) * 100);
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = 'Pergunta ' + (done + 1) + ' de ' + total;
+  document.getElementById('prog-pct').textContent = pct + '%';
+}
+
+function renderQuestion() {
+  var q = QUESTIONS[state.currentQ];
+  state.selectedIdx = null;
+  document.getElementById('question-text').textContent = q.text;
+  var list = document.getElementById('options-list');
+  list.innerHTML = '';
+  q.options.forEach(function(optText, i) {
+    var btn = document.createElement('button');
+    btn.className = 'option-card';
+    btn.textContent = optText;
+    btn.setAttribute('aria-label', 'Alternativa ' + (i + 1) + ': ' + optText);
+    btn.addEventListener('click', function() { selectOption(i); });
+    list.appendChild(btn);
+  });
+  document.getElementById('btn-next').disabled = true;
+  var isLast = state.currentQ === QUESTIONS.length - 1;
+  document.getElementById('btn-next').textContent = isLast ? 'Enviar →' : 'Próxima →';
+  updateProgress();
+}
+
+function selectOption(idx) {
+  state.selectedIdx = idx;
+  document.querySelectorAll('.option-card').forEach(function(c, i) {
+    c.classList.toggle('selected', i === idx);
+    c.setAttribute('aria-pressed', i === idx ? 'true' : 'false');
+  });
+  document.getElementById('btn-next').disabled = false;
+}
+
+// ── SUBMIT — envia apenas índice da alternativa por pergunta ─────
+async function submitQuiz() {
+  var payload = {
+    nome: state.nome,
+    email: state.email,
+    escola: state.escola
+  };
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    payload['Q' + (i + 1)] = (state.answers[i] !== undefined) ? state.answers[i] : -1;
+  }
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error('[Quiz] Falha ao enviar:', err);
+  }
+}
+
+// ── INIT ────────────────────────────────────────────────────────
+(function init() {
+  var nomeInput  = document.getElementById('field-nome');
+  var emailInput = document.getElementById('field-email');
+  var escolaInput = document.getElementById('field-escola');
+  var btnStart   = document.getElementById('btn-start');
+
+  function checkStart() {
+    var nomeOk  = nomeInput.value.trim().length > 0;
+    var emailOk = emailInput.value.trim().length > 0 && emailInput.checkValidity();
+    var escolaOk = escolaInput.value.trim().length > 0;
+    btnStart.disabled = !(nomeOk && emailOk && escolaOk);
+  }
+  nomeInput.addEventListener('input', checkStart);
+  emailInput.addEventListener('input', checkStart);
+  escolaInput.addEventListener('input', checkStart);
+
+  btnStart.addEventListener('click', function() {
+    state.nome   = nomeInput.value.trim();
+    state.email  = emailInput.value.trim();
+    state.escola = escolaInput.value.trim();
+    state.currentQ = 0;
+    state.selectedIdx = null;
+    state.answers = new Array(QUESTIONS.length).fill(-1);
+    showScreen('screen-quiz');
+    renderQuestion();
+  });
+
+  document.getElementById('btn-next').addEventListener('click', function() {
+    if (state.selectedIdx === null) return;
+    state.answers[state.currentQ] = state.selectedIdx;
+    var isLast = state.currentQ === QUESTIONS.length - 1;
+    if (isLast) {
+      showScreen('screen-loading');
+      submitQuiz().then(function() {
+        showScreen('screen-thanks');
+      });
+    } else {
+      state.currentQ++;
+      renderQuestion();
+    }
+  });
+})();
+</script>
+</body>
+</html>
